@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Poker Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- banner mostrato solo se Firebase non è ancora configurato (vedi firebase-config.js) -->
+<div id="demo-banner" class="demo-banner" hidden>
+  Modalità demo — dati di esempio. Configura <code>firebase-config.js</code> per collegare il tuo database.
+</div>
+
+<header class="site-header">
+  <div class="brand">
+    <span class="brand-suit">&spades;</span>
+    <span class="brand-name">Poker Tracker</span>
+  </div>
+<div class="header-actions">
+    <button id="new-session-btn" class="btn btn-primary" hidden>+ Nuova sessione</button>
+    <button id="auth-toggle-btn" class="btn btn-ghost">Accedi</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============ SEZIONE 1: CLASSIFICA ============ -->
+  <section id="leaderboard" class="section">
+    <div class="section-heading">
+      <span class="section-eyebrow">Classifica</span>
+      <h1 class="section-title">Chi sta vincendo</h1>
+    </div>
+
+    <div id="podium" class="podium" aria-label="Podio dei primi tre giocatori"></div>
+
+    <ol id="rank-list" class="rank-list" aria-label="Classifica dal quarto al dodicesimo posto"></ol>
+  </section>
+
+  <!-- ============ SEZIONE 2: RECAP ALL-TIME ============ -->
+  <section id="recap" class="section">
+    <div class="section-heading">
+      <span class="section-eyebrow">All-time</span>
+      <h2 class="section-title">Riepilogo totale</h2>
+    </div>
+
+    <div id="recap-grid" class="recap-grid"></div>
+  </section>
+
+  <!-- ============ SEZIONE 3: STORICO SESSIONI ============ -->
+  <section id="history" class="section">
+    <div class="section-heading">
+      <span class="section-eyebrow">Storico</span>
+      <h2 class="section-title">Tutte le sessioni</h2>
+    </div>
+
+    <div id="session-list" class="session-list"></div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <span>Poker Tracker &middot; dati privati del gruppo</span>
+</footer>
+
+<!-- ============ PANNELLO AUTENTICATO: nuova sessione ============ -->
+<div id="admin-panel" class="admin-panel" hidden>
+  <div class="admin-panel-inner">
+    <div class="admin-panel-header">
+      <div>
+        <span class="section-eyebrow">&spades; Registra risultati</span>
+        <h2>Nuova sessione</h2>
+      </div>
+      <button id="close-admin-btn" class="btn btn-icon" aria-label="Chiudi">&times;</button>
+    </div>
+
+    <form id="session-form" class="session-form">
+      <div class="session-form-body">
+        <div class="field-row">
+          <label for="session-day">Data sessione</label>
+          <div class="date-inputs">
+            <input type="number" id="session-day" name="session-day" placeholder="GG" min="1" max="31" required>
+            <span class="date-sep">/</span>
+            <input type="number" id="session-month" name="session-month" placeholder="MM" min="1" max="12" required>
+            <span class="date-sep">/</span>
+            <input type="number" id="session-year" name="session-year" placeholder="AAAA" min="2000" max="2100" required>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <label>Giocatori partecipanti</label>
+          <div id="player-rows" class="player-rows"><!-- generato via JS da #player-row-template --></div>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <span id="session-form-error" class="form-error" role="alert"></span>
+        <button type="submit" class="btn btn-primary">Salva sessione</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============ MODALE: login ============ -->
+<div id="login-modal" class="modal" hidden>
+  <div class="modal-card">
+    <div class="modal-header">
+      <h2>Accedi</h2>
+      <button id="close-login-btn" class="btn btn-icon" aria-label="Chiudi">&times;</button>
+    </div>
+    <form id="login-form" class="login-form">
+      <label for="login-email">Email</label>
+      <input type="email" id="login-email" required autocomplete="username">
+
+      <label for="login-password">Password</label>
+      <input type="password" id="login-password" required autocomplete="current-password">
+
+      <span id="login-error" class="form-error" role="alert"></span>
+      <button type="submit" class="btn btn-primary">Entra</button>
+    </form>
+  </div>
+</div>
+
+<!-- ============ MODALE: conferma eliminazione ============ -->
+<div id="confirm-modal" class="modal" hidden>
+  <div class="modal-card modal-card-small">
+    <h2>Eliminare la sessione?</h2>
+    <p id="confirm-modal-text" class="modal-text"></p>
+    <div class="modal-actions">
+      <button id="confirm-cancel-btn" class="btn btn-ghost">Annulla</button>
+      <button id="confirm-delete-btn" class="btn btn-danger">Elimina</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ TEMPLATES (clonati via JS) ============ -->
+
+<template id="podium-item-template">
+  <div class="podium-item">
+    <div class="podium-crown"></div>
+    <div class="podium-avatar"></div>
+    <div class="podium-name"></div>
+    <div class="podium-score"></div>
+    <div class="podium-tower"><span class="podium-rank"></span></div>
+  </div>
+</template>
+
+<template id="rank-item-template">
+  <li class="rank-item">
+    <span class="rank-number"></span>
+    <span class="rank-name"></span>
+    <span class="rank-score"></span>
+  </li>
+</template>
+
+<template id="recap-card-template">
+  <div class="recap-card">
+    <div class="recap-name"></div>
+    <div class="recap-figures">
+      <div class="recap-figure">
+        <span class="recap-label">Entrate</span>
+        <span class="recap-value recap-in"></span>
+      </div>
+      <div class="recap-figure">
+        <span class="recap-label">Uscite</span>
+        <span class="recap-value recap-out"></span>
+      </div>
+      <div class="recap-figure">
+        <span class="recap-label">+/-</span>
+        <span class="recap-value recap-net"></span>
+      </div>
+      <div class="recap-figure">
+        <span class="recap-label">%</span>
+        <span class="recap-value recap-pct"></span>
+      </div>
+    </div>
+  </div>
+</template>
+
+<template id="session-card-template">
+  <article class="session-card">
+    <div class="session-card-header">
+      <span class="session-date"></span>
+      <button class="btn btn-danger-ghost session-delete-btn" hidden>Elimina</button>
+    </div>
+    <table class="session-table">
+      <thead>
+        <tr>
+          <th>Giocatore</th>
+          <th>In</th>
+          <th>Out</th>
+          <th>+/-</th>
+          <th>%</th>
+        </tr>
+      </thead>
+      <tbody class="session-table-body"><!-- righe giocatori generate via JS --></tbody>
+    </table>
+  </article>
+</template>
+
+<template id="session-row-template">
+  <tr>
+    <td class="session-row-name"></td>
+    <td class="session-row-in"></td>
+    <td class="session-row-out"></td>
+    <td class="session-row-net"></td>
+    <td class="session-row-pct"></td>
+  </tr>
+</template>
+
+<template id="player-row-template">
+  <div class="player-row">
+    <label class="player-toggle">
+      <span class="toggle-track">
+        <input type="checkbox" class="player-participates">
+        <span class="toggle-thumb"></span>
+      </span>
+      <span class="player-toggle-name"></span>
+    </label>
+    <div class="player-amounts" hidden>
+      <label>
+        <span class="amount-label">In</span>
+        <span class="amount-input-wrap">
+          <span class="amount-currency">&euro;</span>
+          <input type="text" class="player-in" inputmode="decimal" placeholder="0">
+        </span>
+      </label>
+      <label>
+        <span class="amount-label">Out</span>
+        <span class="amount-input-wrap">
+          <span class="amount-currency">&euro;</span>
+          <input type="text" class="player-out" inputmode="decimal" placeholder="0">
+        </span>
+      </label>
+    </div>
+  </div>
+</template>
+
+<script src="firebase-config.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
