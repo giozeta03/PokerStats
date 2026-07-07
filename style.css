@@ -715,6 +715,9 @@ input[type="number"], input[type="text"] { font-family: var(--font-mono); width:
   .podium-avatar { width: 46px; height: 46px; font-size: 1.1rem; }
   .admin-panel-inner { width: 100%; }
   .player-rows { grid-template-columns: 1fr; }
+
+  /* su mobile l'animazione di comparsa allo scroll risultava laggy: disattivata */
+  .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -313,6 +313,7 @@ function renderAll() {
 let revealObserver = null;
 function setupScrollReveal() {
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if (window.matchMedia("(max-width: 640px)").matches) return; // disattivata su mobile: risultava laggy
   if (!revealObserver) {
     revealObserver = new IntersectionObserver((entries) => {
       for (const entry of entries) {
