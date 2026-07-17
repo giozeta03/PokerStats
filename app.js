@@ -152,10 +152,20 @@ async function deleteSessionById(sessionId) {
 //
 // Score = 70% valore netto (+/-) normalizzato + 30% percentuale normalizzata,
 // normalizzati entrambi con min-max rispetto a tutti i giocatori del gruppo.
+//
+// PENALITÀ SCARSA PARTECIPAZIONE:
+// chi ha un totale buy-in inferiore al 70% della media del gruppo (calcolata
+// solo su chi ha giocato almeno una sessione, per non falsare la soglia con
+// giocatori mai scesi in campo) subisce una penalità sul punteggio finale,
+// proporzionale a quanto è sotto soglia — fino a un taglio massimo del 50%
+// per chi ha partecipato pochissimo.
+const PARTECIPAZIONE_SOGLIA_RATIO = 0.7; // soglia = 70% della media buy-in del gruppo
+const PARTECIPAZIONE_PENALITA_MAX = 0.4; // taglio massimo al punteggio: 50%
+
 function calculateStats(players, sessions) {
   const totals = {};
   for (const p of players) {
-    totals[p.id] = { id: p.id, nome: p.nome, totaleIn: 0, totaleOut: 0 };
+    totals[p.id] = { id: p.id, nome: p.nome, totaleIn: 0, totaleOut: 0, sessioniGiocate: 0 };
   }
 
   for (const session of sessions) {
@@ -163,6 +173,7 @@ function calculateStats(players, sessions) {
       if (!totals[g.playerId]) continue; // sicurezza: giocatore non più in lista
       totals[g.playerId].totaleIn += g.in;
       totals[g.playerId].totaleOut += g.out;
+      totals[g.playerId].sessioniGiocate += 1;
     }
   }
 
@@ -181,10 +192,31 @@ function calculateStats(players, sessions) {
 
   const normalize = (value, min, max) => (max === min ? 0.5 : (value - min) / (max - min));
 
+  // media dei buy-in totali, calcolata solo su chi ha giocato almeno una
+  // sessione (altrimenti i giocatori mai scesi in campo abbasserebbero
+  // artificialmente la media e la soglia diventerebbe troppo facile da superare)
+  const partecipanti = stats.filter((s) => s.sessioniGiocate > 0);
+  const mediaBuyIn = partecipanti.length > 0
+    ? partecipanti.reduce((sum, s) => sum + s.totaleIn, 0) / partecipanti.length
+    : 0;
+  const sogliaBuyIn = mediaBuyIn * PARTECIPAZIONE_SOGLIA_RATIO;
+
   for (const s of stats) {
     const nettoNorm = normalize(s.netto, nettoMin, nettoMax);
     const pctNorm = normalize(s.percentuale, pctMin, pctMax);
-    s.score = 0.7 * nettoNorm + 0.3 * pctNorm;
+    const scoreBase = 0.7 * nettoNorm + 0.3 * pctNorm;
+
+    if (sogliaBuyIn > 0 && s.totaleIn < sogliaBuyIn) {
+      // sotto soglia: penalità proporzionale a quanto si è lontani dalla soglia
+      // (0 = non ha mai giocato, 1 = esattamente al limite della soglia)
+      const ratio = s.totaleIn / sogliaBuyIn;
+      const moltiplicatore = (1 - PARTECIPAZIONE_PENALITA_MAX) + PARTECIPAZIONE_PENALITA_MAX * ratio;
+      s.score = scoreBase * moltiplicatore;
+      s.penalizzato = true;
+    } else {
+      s.score = scoreBase;
+      s.penalizzato = false;
+    }
   }
 
   stats.sort((a, b) => b.score - a.score);

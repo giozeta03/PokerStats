@@ -104,6 +104,7 @@ input:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
   padding: 16px 32px;
   background: rgba(7, 10, 16, 0.72);
   backdrop-filter: blur(14px) saturate(140%);
@@ -158,6 +159,7 @@ input:focus-visible {
   cursor: pointer;
   transition: all 0.16s ease;
   position: relative;
+  white-space: nowrap;
 }
 
 .btn-ghost { background: transparent; border-color: var(--line); color: var(--text-primary); }
@@ -579,10 +581,18 @@ input[type="number"], input[type="text"] { font-family: var(--font-mono); width:
   font-size: 1.05rem;
   color: var(--text-primary);
   text-align: center;
+  -moz-appearance: textfield; /* Firefox: rimuove le freccette del number input */
+}
+/* Chrome/Edge/Safari: rimuove le freccette del number input, che a 30px di
+   larghezza si sovrapponevano alle cifre quando erano due (es. 11, 12) */
+.date-inputs input::-webkit-outer-spin-button,
+.date-inputs input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 .date-inputs input:focus-visible { outline: none; color: var(--neon-cyan); box-shadow: none; }
-#session-day, #session-month { width: 30px; }
-#session-year { width: 56px; }
+#session-day, #session-month { width: 34px; }
+#session-year { width: 60px; }
 .date-sep { color: var(--text-faint); font-family: var(--font-mono); }
 
 .player-rows { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
@@ -705,6 +715,11 @@ input[type="number"], input[type="text"] { font-family: var(--font-mono); width:
    ========================================================================== */
 @media (max-width: 640px) {
   .site-header { padding: 14px 18px; }
+  .header-actions { gap: 8px; }
+  .header-actions .btn {
+    padding: 8px 14px;
+    font-size: 0.8rem;
+  }
   .section { padding: 56px 0; }
   .section-title { font-size: 1.65rem; }
   .podium { gap: 10px; }
