@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>PokerStats</title>
 <link rel="icon" type="image/x-icon" href="icons/favicon.ico">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
@@ -16,6 +16,35 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<script>
+  // DIAGNOSTICA: se il codice del sito va in errore o i dati non arrivano,
+  // al posto di "Caricamento dei dati…" compare cosa è successo.
+  (function () {
+    function show(msg) {
+      if (window.__psReady) return;
+      var el = document.getElementById("hero-sub");
+      if (el) el.textContent = msg;
+    }
+    window.addEventListener("error", function (e) {
+      var t = e && e.target;
+      // conta solo gli errori di codice: caratteri, icone e immagini non bloccano il sito
+      if (t && t !== window && t.tagName !== "SCRIPT") return;
+      var what = t && t !== window && t.src
+        ? (/app\.js/.test(t.src)
+            ? "impossibile avviare app.js (il file stesso o i moduli di Firebase che importa non si caricano)"
+            : "impossibile caricare " + t.src)
+        : (e && e.message) || "errore sconosciuto";
+      show("Errore: " + what + ". Ricarica con Cmd+Shift+R; se resta, apri la console (Cmd+Option+J).");
+    }, true);
+    window.addEventListener("unhandledrejection", function (e) {
+      var r = e && e.reason;
+      show("Errore: " + ((r && (r.message || r.code)) || r || "sconosciuto") + ". Apri la console (Cmd+Option+J) per i dettagli.");
+    });
+    setTimeout(function () {
+      show("Il caricamento sta impiegando più del previsto: controlla la connessione e ricarica la pagina (Cmd+Shift+R).");
+    }, 15000);
+  })();
+</script>
 
 <!-- banner mostrato solo se Firebase non è ancora configurato (vedi firebase-config.js) -->
 <div id="demo-banner" class="demo-banner" hidden>
@@ -23,48 +52,142 @@
 </div>
 
 <header class="site-header">
-  <div class="brand">
-    <span class="brand-suit">&spades;</span>
-    <span class="brand-name">PokerStats</span>
-  </div>
-<div class="header-actions">
-    <button id="new-session-btn" class="btn btn-primary" hidden>+ Nuova sessione</button>
-    <button id="auth-toggle-btn" class="btn btn-ghost">Accedi</button>
+  <div class="header-top">
+    <a class="brand" href="#top" aria-label="PokerStats, torna in cima">
+      <span class="brand-suit">&spades;</span>
+      <span class="brand-name">PokerStats</span>
+    </a>
+    <nav class="site-nav" aria-label="Sezioni">
+      <a href="#leaderboard" class="nav-link">Classifica</a>
+      <a href="#charts" class="nav-link">Grafici</a>
+      <a href="#players" class="nav-link">Giocatori</a>
+      <a href="#halloffame" class="nav-link" id="nav-hof" hidden>Albo d'oro</a>
+      <a href="#history" class="nav-link">Storico</a>
+    </nav>
+    <div class="header-actions">
+      <button id="new-session-btn" class="btn btn-primary" hidden>+ Nuova sessione</button>
+      <button id="auth-toggle-btn" class="btn btn-ghost">Accedi</button>
+    </div>
   </div>
 </header>
 
-<main>
+<main id="top">
+
+  <!-- ============ HERO: numeri chiave ============ -->
+  <section class="hero" aria-label="Numeri chiave">
+    <div class="hero-heading">
+      <span class="section-eyebrow">Il tavolo in numeri</span>
+      <p id="hero-sub" class="hero-sub">Caricamento dei dati…</p>
+    </div>
+    <!-- le sagome "skel" si vedono solo finché non arrivano i dati da Firebase -->
+    <div id="kpi-grid" class="kpi-grid skel-host">
+      <div class="kpi skel-card"><span class="skel skel-line w30"></span><span class="skel skel-line skel-big w50"></span><span class="skel skel-line w70"></span></div>
+      <div class="kpi skel-card"><span class="skel skel-line w30"></span><span class="skel skel-line skel-big w50"></span><span class="skel skel-line w70"></span></div>
+      <div class="kpi skel-card"><span class="skel skel-line w30"></span><span class="skel skel-line skel-big w50"></span><span class="skel skel-line w70"></span></div>
+      <div class="kpi skel-card"><span class="skel skel-line w30"></span><span class="skel skel-line skel-big w50"></span><span class="skel skel-line w70"></span></div>
+    </div>
+  </section>
 
   <!-- ============ SEZIONE 1: CLASSIFICA ============ -->
   <section id="leaderboard" class="section">
     <div class="section-heading">
       <span class="section-eyebrow">Classifica</span>
       <h1 class="section-title">Chi sta vincendo</h1>
+      <p class="section-note">Score = 70% netto + 30% rendimento, relativo al gruppo. Le frecce indicano il movimento rispetto alla sessione precedente.</p>
     </div>
 
-    <div id="podium" class="podium" aria-label="Podio dei primi tre giocatori"></div>
+    <div id="podium" class="podium skel-host" aria-label="Podio dei primi tre giocatori">
+      <div class="podium-skel" data-place="2"><span class="skel skel-circle"></span><span class="skel skel-line w50"></span><span class="skel skel-tower"></span></div>
+      <div class="podium-skel" data-place="1"><span class="skel skel-circle"></span><span class="skel skel-line w50"></span><span class="skel skel-tower"></span></div>
+      <div class="podium-skel" data-place="3"><span class="skel skel-circle"></span><span class="skel skel-line w50"></span><span class="skel skel-tower"></span></div>
+    </div>
 
-    <ol id="rank-list" class="rank-list" aria-label="Classifica dal quarto al dodicesimo posto"></ol>
+    <ol id="rank-list" class="rank-list skel-host" aria-label="Classifica dal quarto posto in giù">
+      <li class="skel-row"><span class="skel skel-line w30"></span><span class="skel skel-line w15"></span></li>
+      <li class="skel-row"><span class="skel skel-line w30"></span><span class="skel skel-line w15"></span></li>
+      <li class="skel-row"><span class="skel skel-line w30"></span><span class="skel skel-line w15"></span></li>
+      <li class="skel-row"><span class="skel skel-line w30"></span><span class="skel skel-line w15"></span></li>
+    </ol>
   </section>
 
-  <!-- ============ SEZIONE 2: RECAP ALL-TIME ============ -->
-  <section id="recap" class="section">
+  <!-- ============ SEZIONE 2: GRAFICI ============ -->
+  <section id="charts" class="section">
     <div class="section-heading">
-      <span class="section-eyebrow">All-time</span>
-      <h2 class="section-title">Riepilogo totale</h2>
+      <span class="section-eyebrow">Grafici</span>
+      <h2 class="section-title">Come è andata</h2>
     </div>
 
-    <div id="recap-grid" class="recap-grid"></div>
+    <div id="charts-fallback" class="empty-note" hidden>I grafici non sono disponibili: libreria non caricata. Controlla la connessione e ricarica la pagina.</div>
+
+    <div class="chart-panel chart-panel-wide">
+      <div class="chart-head">
+        <div>
+          <h3 class="chart-title">Andamento del saldo</h3>
+          <p id="trend-sub" class="chart-sub">Netto accumulato sessione dopo sessione · evidenzia fino a 6 giocatori, oppure tutti</p>
+        </div>
+      </div>
+      <div id="trend-chips" class="chip-row" role="group" aria-label="Giocatori evidenziati"></div>
+      <div class="chart-box chart-box-tall"><canvas id="trend-chart" aria-label="Grafico dell'andamento del saldo accumulato per giocatore" role="img"></canvas></div>
+    </div>
+
+    <div class="chart-panel">
+      <div class="chart-head">
+        <div>
+          <h3 class="chart-title">Netto totale</h3>
+          <p class="chart-sub">Chi è sopra e chi è sotto · tocca una barra per aprire la scheda</p>
+        </div>
+      </div>
+      <div class="chart-box" id="net-box"><canvas id="net-chart" aria-label="Grafico a barre del netto totale per giocatore" role="img"></canvas></div>
+    </div>
   </section>
 
-  <!-- ============ SEZIONE 3: STORICO SESSIONI ============ -->
+  <!-- ============ SEZIONE 3: GIOCATORI ============ -->
+  <section id="players" class="section">
+    <div class="section-heading">
+      <span class="section-eyebrow">Giocatori</span>
+      <h2 class="section-title">Premi e statistiche</h2>
+    </div>
+
+    <div id="awards-grid" class="awards-grid" aria-label="Premi"></div>
+
+    <div id="recap-grid" class="recap-grid skel-host">
+      <div class="recap-card skel-card"><span class="skel skel-line w50"></span><span class="skel skel-spark"></span><span class="skel skel-line w70"></span><span class="skel skel-line w50"></span></div>
+      <div class="recap-card skel-card"><span class="skel skel-line w50"></span><span class="skel skel-spark"></span><span class="skel skel-line w70"></span><span class="skel skel-line w50"></span></div>
+      <div class="recap-card skel-card"><span class="skel skel-line w50"></span><span class="skel skel-spark"></span><span class="skel skel-line w70"></span><span class="skel skel-line w50"></span></div>
+    </div>
+  </section>
+
+  <!-- ============ SEZIONE 4: ALBO D'ORO (solo se c'è almeno un anno concluso) ============ -->
+  <section id="halloffame" class="section" hidden>
+    <div class="section-heading section-heading-row">
+      <div>
+        <span class="section-eyebrow">Albo d'oro</span>
+        <h2 class="section-title">Le stagioni passate</h2>
+        <p class="section-note">Campione e premi di ogni anno concluso, calcolati solo sulle sessioni di quell'anno.</p>
+      </div>
+      <div id="hof-years" class="chip-row chip-row-tight" role="group" aria-label="Scegli la stagione"></div>
+    </div>
+    <div id="hof-body"></div>
+  </section>
+
+  <!-- ============ SEZIONE 5: STORICO SESSIONI ============ -->
   <section id="history" class="section">
-    <div class="section-heading">
-      <span class="section-eyebrow">Storico</span>
-      <h2 class="section-title">Tutte le sessioni</h2>
+    <div class="section-heading section-heading-row">
+      <div>
+        <span class="section-eyebrow">Storico</span>
+        <h2 class="section-title">Tutte le sessioni</h2>
+      </div>
+      <div class="history-tools">
+        <div id="year-filter" class="chip-row chip-row-tight" role="group" aria-label="Filtra per anno"></div>
+        <button id="backup-btn" type="button" class="btn btn-ghost btn-small admin-only">Scarica backup</button>
+      </div>
     </div>
 
-    <div id="session-list" class="session-list"></div>
+    <div id="session-list" class="session-list skel-host">
+      <div class="skel-row"><span class="skel skel-line w30"></span><span class="skel skel-line w15"></span></div>
+      <div class="skel-row"><span class="skel skel-line w30"></span><span class="skel skel-line w15"></span></div>
+      <div class="skel-row"><span class="skel skel-line w30"></span><span class="skel skel-line w15"></span></div>
+    </div>
   </section>
 
 </main>
@@ -73,13 +196,95 @@
   <span>PokerStats &middot; dati privati del gruppo</span>
 </footer>
 
+<!-- ============ CELEBRAZIONE MVP (una volta per sessione, per ogni telefono) ============ -->
+<div id="mvp-overlay" class="mvp-overlay" hidden>
+  <canvas id="mvp-canvas" aria-hidden="true"></canvas>
+  <div class="mvp-card" role="dialog" aria-labelledby="mvp-name">
+    <span class="mvp-eyebrow">♛ MVP della serata</span>
+    <span id="mvp-avatar" class="avatar mvp-avatar"></span>
+    <span id="mvp-name" class="mvp-name"></span>
+    <span id="mvp-net" class="mvp-net value-positive"></span>
+    <span id="mvp-date" class="mvp-date"></span>
+    <span class="mvp-hint">Tocca per chiudere</span>
+  </div>
+</div>
+
+<!-- ============ AVATAR A TUTTO SCHERMO (dalla scheda giocatore) ============ -->
+<div id="avatar-lightbox" class="avatar-lightbox" hidden>
+  <figure class="lightbox-figure" role="dialog" aria-modal="true" aria-labelledby="lightbox-name">
+    <button type="button" id="lightbox-close" class="btn btn-icon lightbox-close" aria-label="Chiudi">&times;</button>
+    <img id="lightbox-img" class="lightbox-img" alt="">
+    <figcaption id="lightbox-name" class="lightbox-name"></figcaption>
+  </figure>
+</div>
+
+<!-- ============ PANNELLO: scheda giocatore ============ -->
+<div id="player-drawer" class="drawer" hidden>
+  <div class="drawer-inner" role="dialog" aria-modal="true" aria-labelledby="drawer-name">
+    <div class="drawer-header">
+      <div class="drawer-identity">
+        <button type="button" id="drawer-avatar" class="avatar avatar-lg drawer-avatar" aria-label="Apri l'immagine del giocatore"></button>
+        <div>
+          <span id="drawer-rank" class="section-eyebrow"></span>
+          <h2 id="drawer-name"></h2>
+          <div id="drawer-badges" class="badge-row"></div>
+        </div>
+      </div>
+      <button id="close-drawer-btn" class="btn btn-icon" aria-label="Chiudi">&times;</button>
+    </div>
+    <div class="drawer-body">
+      <div id="drawer-kpis" class="drawer-kpis"></div>
+      <div class="drawer-block" id="drawer-radar-block">
+        <h3 class="drawer-block-title">Profilo <span class="drawer-block-note">· da 0 a 100 rispetto al gruppo</span></h3>
+        <div class="flip-card" id="radar-flip">
+          <div class="flip-inner">
+            <div class="flip-face flip-front">
+              <button type="button" class="info-btn" id="radar-info-btn" aria-label="Cosa significano le voci del profilo" aria-expanded="false" aria-controls="radar-back">i</button>
+              <div class="chart-box chart-box-radar"><canvas id="drawer-radar" role="img" aria-label="Profilo del giocatore: rendimento, percentuale in attivo, presenze, costanza e colpo grosso"></canvas></div>
+            </div>
+            <div class="flip-face flip-back" id="radar-back" aria-hidden="true">
+              <button type="button" class="info-btn info-btn-close" id="radar-info-close" aria-label="Torna al grafico" tabindex="-1">&times;</button>
+              <h4>Come leggere il profilo</h4>
+              <p class="flip-intro">Contano solo le sessioni registrate col sito (il recap pre-sito è escluso). La linea tratteggiata è la media del gruppo.</p>
+              <dl class="radar-legend">
+                <dt>Rendimento</dt>
+                <dd>Quanto guadagni rispetto a quanto metti sul tavolo (netto ÷ buy-in). <strong>100</strong> = il miglior rendimento del gruppo, <strong>0</strong> = il peggiore.</dd>
+                <dt>% in attivo</dt>
+                <dd>La percentuale di sessioni chiuse in guadagno. Qui il numero è quello vero: <strong>60</strong> = hai vinto nel 60% delle serate giocate.</dd>
+                <dt>Presenze</dt>
+                <dd>Quante serate hai giocato su tutte quelle registrate. <strong>100</strong> = non ne hai saltata nessuna.</dd>
+                <dt>Costanza</dt>
+                <dd>Quanto sono simili tra loro i tuoi risultati, cioè l'opposto dello swing. <strong>100</strong> = il più regolare del gruppo, <strong>0</strong> = il più altalenante. Con una sola sessione vale 50.</dd>
+                <dt>Colpo grosso</dt>
+                <dd>La tua vincita più alta in una singola serata. <strong>100</strong> = il record del gruppo, <strong>0</strong> = il colpo grosso più piccolo.</dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="drawer-block">
+        <h3 class="drawer-block-title">Saldo accumulato</h3>
+        <div class="chart-box chart-box-small"><canvas id="drawer-trend" role="img" aria-label="Saldo accumulato del giocatore"></canvas></div>
+      </div>
+      <div class="drawer-block">
+        <h3 class="drawer-block-title">Risultato per sessione</h3>
+        <div class="chart-box chart-box-small"><canvas id="drawer-bars" role="img" aria-label="Risultato del giocatore in ogni sessione"></canvas></div>
+      </div>
+      <div class="drawer-block">
+        <h3 class="drawer-block-title">Ultime sessioni</h3>
+        <ul id="drawer-sessions" class="drawer-sessions"></ul>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ============ PANNELLO AUTENTICATO: nuova sessione ============ -->
 <div id="admin-panel" class="admin-panel" hidden>
   <div class="admin-panel-inner">
     <div class="admin-panel-header">
       <div>
-        <span class="section-eyebrow">&spades; Registra risultati</span>
-        <h2>Nuova sessione</h2>
+        <span id="admin-eyebrow" class="section-eyebrow">&spades; Registra risultati</span>
+        <h2 id="admin-title">Nuova sessione</h2>
       </div>
       <button id="close-admin-btn" class="btn btn-icon" aria-label="Chiudi">&times;</button>
     </div>
@@ -104,8 +309,9 @@
       </div>
 
       <div class="form-actions">
+        <div id="form-balance" class="form-balance" aria-live="polite"></div>
         <span id="session-form-error" class="form-error" role="alert"></span>
-        <button type="submit" class="btn btn-primary">Salva sessione</button>
+        <button type="submit" id="session-submit-btn" class="btn btn-primary">Salva sessione</button>
       </div>
     </form>
   </div>
@@ -146,66 +352,96 @@
 <!-- ============ TEMPLATES (clonati via JS) ============ -->
 
 <template id="podium-item-template">
-  <div class="podium-item">
-    <div class="podium-crown"></div>
-    <div class="podium-avatar"></div>
-    <div class="podium-name"></div>
-    <div class="podium-score"></div>
-    <div class="podium-tower"><span class="podium-rank"></span></div>
-  </div>
+  <button type="button" class="podium-item">
+    <span class="podium-crown"></span>
+    <span class="avatar podium-avatar"></span>
+    <span class="podium-name"></span>
+    <span class="podium-net"></span>
+    <span class="podium-meta"></span>
+    <span class="podium-tower"><span class="podium-rank"></span></span>
+  </button>
 </template>
 
 <template id="rank-item-template">
-  <li class="rank-item">
-    <span class="rank-number"></span>
-    <span class="rank-name"></span>
-    <span class="rank-score"></span>
+  <li>
+    <button type="button" class="rank-item">
+      <span class="rank-number"></span>
+      <span class="rank-move"></span>
+      <span class="rank-main">
+        <span class="avatar avatar-xs rank-avatar"></span>
+        <span class="rank-name"></span>
+        <span class="rank-tags"></span>
+      </span>
+      <span class="rank-net"></span>
+      <span class="rank-score">
+        <span class="score-bar"><span class="score-fill"></span></span>
+        <span class="score-value"></span>
+      </span>
+    </button>
   </li>
 </template>
 
 <template id="recap-card-template">
-  <div class="recap-card">
-    <div class="recap-name"></div>
-    <div class="recap-figures">
-      <div class="recap-figure">
-        <span class="recap-label">Entrate</span>
-        <span class="recap-value recap-in"></span>
-      </div>
-      <div class="recap-figure">
-        <span class="recap-label">Uscite</span>
-        <span class="recap-value recap-out"></span>
-      </div>
-      <div class="recap-figure">
-        <span class="recap-label">+/-</span>
-        <span class="recap-value recap-net"></span>
-      </div>
-      <div class="recap-figure">
-        <span class="recap-label">%</span>
-        <span class="recap-value recap-pct"></span>
-      </div>
-    </div>
-  </div>
+  <button type="button" class="recap-card">
+    <span class="recap-top">
+      <span class="avatar avatar-sm recap-avatar"></span>
+      <span class="recap-id">
+        <span class="recap-name"></span>
+        <span class="recap-sub"></span>
+      </span>
+      <span class="recap-net"></span>
+    </span>
+    <canvas class="recap-spark" width="240" height="44" aria-hidden="true"></canvas>
+    <span class="recap-figures">
+      <span class="recap-figure"><span class="recap-label">Entrate</span><span class="recap-value recap-in"></span></span>
+      <span class="recap-figure"><span class="recap-label">Uscite</span><span class="recap-value recap-out"></span></span>
+      <span class="recap-figure"><span class="recap-label">Rendimento</span><span class="recap-value recap-pct"></span></span>
+      <span class="recap-figure"><span class="recap-label">In attivo</span><span class="recap-value recap-win"></span></span>
+      <span class="recap-figure"><span class="recap-label">Media/sess.</span><span class="recap-value recap-avg"></span></span>
+      <span class="recap-figure"><span class="recap-label">Serie</span><span class="recap-value recap-streak"></span></span>
+    </span>
+    <span class="badge-row recap-badges"></span>
+  </button>
 </template>
 
 <template id="session-card-template">
-  <article class="session-card">
-    <div class="session-card-header">
+  <details class="session-card">
+    <summary class="session-summary">
       <span class="session-date"></span>
-      <button class="btn btn-danger-ghost session-delete-btn" hidden>Elimina</button>
+      <span class="session-meta"></span>
+      <span class="session-winner"></span>
+      <span class="session-check"></span>
+      <span class="session-chevron" aria-hidden="true"></span>
+    </summary>
+    <div class="session-body">
+      <div class="table-scroll">
+        <table class="session-table">
+          <thead>
+            <tr>
+              <th>Giocatore</th>
+              <th>In</th>
+              <th>Out</th>
+              <th>+/-</th>
+              <th>%</th>
+            </tr>
+          </thead>
+          <tbody class="session-table-body"><!-- righe giocatori generate via JS --></tbody>
+          <tfoot>
+            <tr class="session-total-row">
+              <td>Totale</td>
+              <td class="session-total-in"></td>
+              <td class="session-total-out"></td>
+              <td class="session-total-diff" colspan="2"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <div class="session-body-actions">
+        <button class="btn btn-ghost btn-small session-edit-btn" hidden>Modifica</button>
+        <button class="btn btn-danger-ghost session-delete-btn" hidden>Elimina sessione</button>
+      </div>
     </div>
-    <table class="session-table">
-      <thead>
-        <tr>
-          <th>Giocatore</th>
-          <th>In</th>
-          <th>Out</th>
-          <th>+/-</th>
-          <th>%</th>
-        </tr>
-      </thead>
-      <tbody class="session-table-body"><!-- righe giocatori generate via JS --></tbody>
-    </table>
-  </article>
+  </details>
 </template>
 
 <template id="session-row-template">
@@ -246,6 +482,8 @@
   </div>
 </template>
 
+<!-- Chart.js 4.4.1 (licenza MIT) salvato nel progetto: i grafici non dipendono da siti esterni -->
+<script src="lib/chart.umd.js"></script>
 <script src="firebase-config.js"></script>
 <script type="module" src="app.js"></script>
 </body>

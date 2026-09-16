@@ -1,0 +1,20 @@
+{
+  "_come_funziona": "Associa ogni giocatore alla sua immagine in questa cartella. 'perNome' usa il nome come scritto su Firebase (maiuscole e spazi non contano); 'perId' (facoltativo) usa l'ID del giocatore e vince sul nome. Dopo aver cambiato un'immagine, aumenta 'versione'.",
+  "versione": 2,
+  "perNome": {
+    "Claudia": "claudia.webp",
+    "Dani": "dani.webp",
+    "Diego": "diego.webp",
+    "Gheb": "gheb.webp",
+    "Gio Gatto": "gio-gatto.webp",
+    "Gio Zatti": "gio-zatti.webp",
+    "Sampelli": "sampelli.webp",
+    "Samu T": "samu-t.webp",
+    "Scacco": "scacco.webp",
+    "Seba": "seba.webp",
+    "Talismano": "talismano.webp",
+    "Trama": "trama.webp",
+    "ema": "ema.webp"
+  },
+  "perId": {}
+}
