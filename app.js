@@ -310,7 +310,7 @@ const EPS = 0.5; // tolleranza in € per considerare "in pari" una sessione
 // stesso esito, contando solo le sessioni a cui il giocatore ha partecipato
 // (saltare una serata non interrompe la serie). Il segno compare solo se il
 // giocatore ha giocato almeno una delle ultime STREAK_RECENTI sessioni del gruppo.
-const STREAK_MIN = 3;
+const STREAK_MIN = 2;
 const STREAK_RECENTI = 3;
 const HOT = { label: "On fire", color: "var(--neon-orange)", icon: "🔥", title: "sessioni vinte di fila" };
 const COLD = { label: "Bidone", color: "var(--neon-magenta)", icon: "🗑️", title: "sessioni perse di fila" };
@@ -327,6 +327,70 @@ function findRecapId(sessions) {
 
 // opts.noRecap = true: nessuna sessione viene trattata come recap (serve
 // per l'albo d'oro, dove si passano solo le sessioni vere di un anno)
+const PIANGINA_MIN = 1;
+
+// emoji di ogni premio (card dei premi e albo d'oro)
+const AWARD_EMOJI = {
+  squalo: "🦈",
+  cecchino: "🎯",
+  record: "🏆",
+  stakanovista: "📅",
+  swing: "🎢",
+  bancomat: "💸",
+  titanic: "🚢",
+  // "Carta bassa": una mini carta da gioco 2♠ invece di un'emoji
+  manofredda: '<span class="mini-card">2<span class="mini-card-suit">♠</span></span>',
+  piangina: "😭"
+};
+
+// serie negativa in corso di ogni giocatore, guardando solo le prime `k`
+// sessioni (serve per trovare "l'ultimo Piangina" quando oggi non c'è)
+// ordine per scegliere il Piangina (a parità si passa al criterio successivo):
+// 1. più sconfitte di fila   2. più soldi persi nella serie
+// 3. più soldi persi rispetto al buy-in della serie (in %)
+// 4. posizione peggiore nella classifica generale   5. ordine alfabetico
+function peggioreDi(a, b, rankOf) {
+  if (a.count !== b.count) return a.count > b.count;
+  if (Math.abs(a.perso - b.perso) >= 0.005) return a.perso < b.perso;
+  if (Math.abs(a.pct - b.pct) >= 0.0001) return a.pct < b.pct;
+  const ra = rankOf.get(a.id) ?? 0;
+  const rb = rankOf.get(b.id) ?? 0;
+  if (ra !== rb) return ra > rb;
+  return String(a.nome).localeCompare(String(b.nome), "it") < 0;
+}
+
+function pianginaAt(sorted, byPlayer, k, rankOf, nomeOf) {
+  const pos = new Map(sorted.map((s, i) => [s.id, i]));
+  const recentIds = new Set(sorted.slice(Math.max(0, k - STREAK_RECENTI), k).map((s) => s.id));
+  let best = null;
+  for (const [id, allRes] of byPlayer) {
+    const res = allRes.filter((r) => pos.has(r.sessionId) && pos.get(r.sessionId) < k);
+    if (!res.length || !recentIds.has(res[res.length - 1].sessionId)) continue;
+    let count = 0;
+    let perso = 0;
+    let buyIn = 0;
+    for (let i = res.length - 1; i >= 0 && res[i].net < -EPS; i--) {
+      count++;
+      perso += res[i].net;
+      buyIn += res[i].in;
+    }
+    if (count < PIANGINA_MIN) continue;
+    const cand = { id, nome: nomeOf.get(id), count, perso, pct: buyIn > 0 ? perso / buyIn : 0, fino: res[res.length - 1].data };
+    if (!best || peggioreDi(cand, best, rankOf)) best = cand;
+  }
+  return best;
+}
+
+function findPiangina(sorted, byPlayer, stats) {
+  const rankOf = new Map(stats.map((s, i) => [s.id, i + 1]));
+  const nomeOf = new Map(stats.map((s) => [s.id, s.nome]));
+  for (let k = sorted.length; k >= 1; k--) {
+    const found = pianginaAt(sorted, byPlayer, k, rankOf, nomeOf);
+    if (found) return { ...found, attuale: k === sorted.length };
+  }
+  return null;
+}
+
 function calculateInsights(players, sessions, stats, opts = {}) {
   const all = [...sessions].sort((a, b) => a.data - b.data);
   const recap = opts.noRecap ? null : all[0] || null;
@@ -426,26 +490,11 @@ function calculateInsights(players, sessions, stats, opts = {}) {
     // conta solo la parte di "altezza" persa: chi non è mai salito non affonda
     st.drawdown = Math.min(peak.value, peak.value - st.netto);
 
-    // PIANGINA: il tonfo più brusco tra una vittoria (o una serie di vittorie
-    // consecutive) e la sessione persa subito dopo.
-    // crollo = quanto aveva vinto nella serie + quanto ha perso dopo
-    st.tonfo = null;
-    let serieVinta = 0;
-    for (const r of res) {
-      if (r.net < -EPS && serieVinta > 0) {
-        const crollo = serieVinta - r.net;
-        if (!st.tonfo || crollo > st.tonfo.crollo) {
-          st.tonfo = { crollo, vinto: serieVinta, perso: r.net, data: r.data };
-        }
-      }
-      serieVinta = r.net > EPS ? serieVinta + r.net : 0;
-    }
-    st.tonfoValue = st.tonfo ? st.tonfo.crollo : 0;
-
     // la serie conta solo se il giocatore ha partecipato ad almeno una delle
     // ultime STREAK_RECENTI sessioni del gruppo (niente "On fire" di mesi fa)
     const lastPlayed = res.length ? res[res.length - 1].sessionId : null;
     const recente = lastPlayed !== null && recentIds.has(lastPlayed);
+    st.recente = recente;
     st.hot = recente && streak.type === "W" && streak.count >= STREAK_MIN;
     st.cold = recente && streak.type === "L" && streak.count >= STREAK_MIN;
   }
@@ -503,18 +552,34 @@ function calculateInsights(players, sessions, stats, opts = {}) {
   if (titanic && titanic.drawdown > EPS) {
     awards.push({ key: "titanic", title: "Titanic", color: "var(--neon-blue)", player: titanic, value: `da ${fmtNet(titanic.peak.value)} a ${fmtNet(titanic.netto)}`, desc: "Il crollo più grande dal suo massimo" });
   }
+  // CARTA BASSA (prima "Mano fredda"): la % più bassa di serate in attivo
   const manoFredda = pick(eligible, "winRate", -1);
   if (manoFredda && manoFredda.winRate < 50 && manoFredda !== cecchino) {
-    awards.push({ key: "manofredda", title: "Mano fredda", color: "var(--neon-ice)", player: manoFredda, value: `solo ${Math.round(manoFredda.winRate)}% in attivo`, desc: "Meno sessioni chiuse in positivo" });
+    awards.push({ key: "manofredda", title: "Carta bassa", color: "var(--neon-ice)", player: manoFredda, value: `solo ${Math.round(manoFredda.winRate)}% in attivo`, desc: "Meno sessioni chiuse in positivo" });
   }
-  const piangina = pick(active.filter((s) => s.tonfo), "tonfoValue");
+  // PIANGINA: la serie di sconfitte consecutive IN CORSO più lunga (almeno
+  // PIANGINA_MIN), contando solo le serate giocate da ciascuno e solo chi ha
+  // giocato una delle ultime STREAK_RECENTI serate. Spareggi: vedi peggioreDi().
+  // Se oggi nessuno ha una serie così, il titolo resta all'ultimo che l'ha
+  // avuto. Il Piangina non riceve anche il badge "Bidone".
+  const pg = findPiangina(sorted, byPlayer, stats);
+  const piangina = pg ? stats.find((s) => s.id === pg.id) : null;
   if (piangina) {
-    const t = piangina.tonfo;
-    awards.push({ key: "piangina", title: "Piangina", color: "var(--neon-pink)", player: piangina, value: `${fmtNet(t.vinto)} poi ${fmtNet(t.perso)} · ${fmtDateShort(t.data)}`, desc: "Il tonfo più brusco dopo una vittoria" });
+    piangina.cold = false; // niente doppione con "Bidone"
+    piangina.piangina = pg;
+    awards.push({
+      key: "piangina",
+      title: "Piangina",
+      color: "var(--neon-pink)",
+      player: piangina,
+      value: `${pg.count === 1 ? "1 sconfitta" : `${pg.count} sconfitte di fila`}${pg.attuale ? "" : ` fino al ${fmtDateShort(pg.fino)}`}`,
+      extra: `${fmtNet(pg.perso)} nella serie`,
+      desc: pg.attuale ? "La serie negativa in corso più lunga" : "Titolo in carica: nessuna nuova serie negativa"
+    });
   }
 
   for (const st of stats) {
-    st.badges = awards.filter((a) => a.player.id === st.id).map((a) => ({ label: a.title, color: a.color, icon: a.key === "piangina" ? "😭" : "" }));
+    st.badges = awards.filter((a) => a.player.id === st.id).map((a) => ({ key: a.key, label: a.title, color: a.color, icon: a.key === "piangina" ? "😭" : "" }));
     if (st.hot) st.badges.unshift({ ...HOT, title: `${st.streak.count} ${HOT.title}` });
     if (st.cold) st.badges.unshift({ ...COLD, title: `${st.streak.count} ${COLD.title}` });
   }
@@ -597,6 +662,7 @@ const initial = (name) => name.trim().charAt(0).toUpperCase();
 const fmtStreak = (x) => {
   const st = x.streak || x;
   const txt = st.type ? `${st.count} ${st.type === "W" ? "V" : "P"}` : "—";
+  if (x.piangina && x.piangina.attuale && st.type === "L") return `${txt} 😭`;
   return x.hot ? `${txt} ${HOT.icon}` : x.cold ? `${txt} ${COLD.icon}` : txt;
 };
 const streakClass = (st) => (st.type === "W" ? "value-positive" : st.type === "L" ? "value-negative" : "value-neutral");
@@ -869,18 +935,18 @@ function renderAwards(ins) {
       el.className = "award award-piangina";
       el.innerHTML = `
         <span class="piangina-main">
-          <span class="award-title"><span class="piangina-emoji" aria-hidden="true">😭</span>${a.title}</span>
+          <span class="award-title"><span class="piangina-emoji" aria-hidden="true">${AWARD_EMOJI.piangina}</span>${a.title}</span>
           <span class="award-name">${escapeHtml(a.player.nome)}</span>
         </span>
         <span class="piangina-side">
           <span class="award-value">${a.value}</span>
-          <span class="award-value piangina-crollo">crollo di ${fmtMoney(a.player.tonfo.crollo)}</span>
+          <span class="award-value piangina-crollo">${a.extra || ""}</span>
           <span class="award-desc">${a.desc}</span>
         </span>`;
     } else {
       el.className = "award";
       el.innerHTML = `
-        <span class="award-title">${a.title}</span>
+        <span class="award-title"><span class="award-emoji" aria-hidden="true">${AWARD_EMOJI[a.key] || ""}</span>${a.title}</span>
         <span class="award-name">${nameHtml(a.player.id, a.player.nome)}</span>
         <span class="award-value">${a.value}</span>
         <span class="award-desc">${a.desc}</span>`;
@@ -1210,9 +1276,9 @@ function renderHallOfFame(sessions) {
     row.className = `hof-award${a.key === "piangina" ? " hof-award-piangina" : ""}`;
     row.style.setProperty("--ac", a.color);
     row.innerHTML = `
-      <span class="hof-award-title">${a.key === "piangina" ? "😭 " : ""}${a.title}</span>
+      <span class="hof-award-title"><span class="award-emoji" aria-hidden="true">${AWARD_EMOJI[a.key] || ""}</span>${a.title}</span>
       <span class="hof-award-name">${nameHtml(a.player.id, a.player.nome)}</span>
-      <span class="hof-award-value">${a.value}</span>`;
+      <span class="hof-award-value">${a.value}${a.extra ? ` · ${a.extra}` : ""}</span>`;
     row.addEventListener("click", () => openPlayerDrawer(a.player.id));
     list.appendChild(row);
   }
@@ -1409,6 +1475,27 @@ function openAvatarLightbox(id, nome) {
   lightboxImg.alt = `Avatar di ${nome}`;
   lightbox.style.setProperty("--av", allColor(id));
   document.getElementById("lightbox-name").innerHTML = nameHtml(id, nome);
+
+  // sotto il nome: tutti i badge del giocatore (premi con la loro emoji,
+  // On fire / Bidone / Piangina). "Poche presenze" non si mostra.
+  const row = document.getElementById("lightbox-badges");
+  row.innerHTML = "";
+  const st = state.stats.find((s) => s.id === id);
+  for (const b of (st && st.badges) || []) {
+    const el = badgeEl(b.label, b.color, "badge-lg");
+    const iconHtml = b.key ? AWARD_EMOJI[b.key] : b.icon;
+    if (iconHtml) {
+      el.classList.add("badge-icon");
+      const ic = document.createElement("span");
+      ic.className = "badge-emoji";
+      ic.setAttribute("aria-hidden", "true");
+      ic.innerHTML = iconHtml; // testo dell'emoji o la mini carta 2♠ (contenuto fisso del sito)
+      el.prepend(ic);
+    }
+    if (b.title) el.title = b.title;
+    row.appendChild(el);
+  }
+  row.hidden = row.childElementCount === 0;
   lightbox.hidden = false;
   lightbox.classList.remove("closing");
   document.getElementById("lightbox-close").focus({ preventScroll: true });

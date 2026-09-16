@@ -862,6 +862,32 @@ main {
   text-transform: uppercase;
   color: var(--ac);
 }
+.award-title { display: inline-flex; align-items: center; gap: 6px; }
+.award-emoji { font-size: 0.95rem; letter-spacing: 0; line-height: 1; }
+.hof-award-title { display: inline-flex; align-items: center; gap: 5px; }
+/* mini carta da gioco (premio "Carta bassa") */
+.mini-card {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: 14px;
+  height: 19px;
+  border-radius: 3px;
+  background: #f4f6fb;
+  color: #0b0f18;
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25), 0 0 8px color-mix(in srgb, var(--ac, #7fd4ff) 45%, transparent);
+  transform: rotate(-8deg);
+  flex-direction: column;
+}
+.mini-card-suit { font-size: 0.55rem; margin-top: -1px; }
+.hof-award-title .mini-card { transform: rotate(-8deg) scale(0.9); }
+.hof-award-title .award-emoji { font-size: 0.85rem; }
 .award-name { font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .award-value { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 0.82rem; color: var(--text-primary); }
 .award-desc { font-size: 0.74rem; color: var(--text-faint); }
@@ -1624,7 +1650,12 @@ input[type="number"], input[type="text"] { font-family: var(--font-mono); width:
   animation: lightbox-pop 0.35s cubic-bezier(.2, .9, .3, 1.15) both;
 }
 @keyframes lightbox-pop { from { transform: scale(0.7); opacity: 0; } to { transform: none; opacity: 1; } }
+.lightbox-caption { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .lightbox-name { font-family: var(--font-display); font-weight: 700; font-size: 1.5rem; text-align: center; }
+.lightbox-badges { justify-content: center; max-width: 100%; }
+.badge-lg { font-size: 0.82rem; padding: 5px 12px 5px 9px; gap: 7px; }
+.badge-lg .badge-emoji { font-size: 1rem; }
+.badge-lg .mini-card { transform: rotate(-8deg) scale(0.95); }
 .lightbox-close {
   position: absolute;
   top: -6px;
