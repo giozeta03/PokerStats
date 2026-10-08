@@ -152,8 +152,7 @@ const state = {
   hofYear: null,     // stagione mostrata nell'albo d'oro
   dupConfirm: null,  // data già presente che l'admin ha confermato di voler salvare
   firstRender: true,
-  dataLoaded: false,        // true quando giocatori e sessioni sono arrivati
-  openAdminAfterLoad: false // admin già loggato prima che arrivassero i dati
+  dataLoaded: false         // true quando giocatori e sessioni sono arrivati
 };
 
 const charts = {};
@@ -2287,7 +2286,6 @@ loginForm?.addEventListener("submit", async (e) => {
     loginModal.hidden = true;
     updateAuthUI();
     renderAll();
-    openAdminPanel();
     return;
   }
 
@@ -2303,17 +2301,13 @@ if (!isDemoMode) {
   onAuthStateChanged(auth, (user) => {
     state.isAuthenticated = !!user;
     updateAuthUI();
-    if (!state.dataLoaded) {
-      // i dati non sono ancora arrivati: il pannello si apre appena pronti
-      state.openAdminAfterLoad = !!user;
-      return;
-    }
+    // i dati non sono ancora arrivati: ridisegna init() appena pronti
+    if (!state.dataLoaded) return;
     try {
       renderAll();
     } catch (err) {
       console.error("[PokerStats] errore durante il disegno della pagina:", err);
     }
-    if (user) openAdminPanel();
   });
 }
 
@@ -2547,12 +2541,7 @@ async function init() {
     return;
   }
   window.__psReady = true;
-  if (state.openAdminAfterLoad && state.isAuthenticated) {
-    state.openAdminAfterLoad = false;
-    openAdminPanel(); // admin già loggato: niente festa MVP sopra al pannello
-  } else {
-    setTimeout(maybeCelebrateMvp, 700);
-  }
+  setTimeout(maybeCelebrateMvp, 700);
 }
 
 init();
