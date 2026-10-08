@@ -281,6 +281,7 @@ function calculateStats(players, sessions) {
     const nettoNorm = normalize(s.netto, nettoMin, nettoMax);
     const pctNorm = normalize(s.percentuale, pctMin, pctMax);
     const scoreBase = 0.7 * nettoNorm + 0.3 * pctNorm;
+    s.scoreBase = scoreBase; // score senza penalità (mostrato solo nella scheda, non ufficiale)
 
     if (sogliaBuyIn > 0 && s.totaleIn < sogliaBuyIn) {
       // sotto soglia: penalità proporzionale a quanto si è lontani dalla soglia
@@ -343,7 +344,11 @@ const AWARD_EMOJI = {
   titanic: "🚢",
   // "Carta bassa": una mini carta da gioco 2♠ invece di un'emoji
   manofredda: '<span class="mini-card">2<span class="mini-card-suit">♠</span></span>',
-  piangina: "😭"
+  piangina: "😭",
+  fenice: "🐦‍🔥",
+  tirchiasso: "🪙",
+  legno: "🪵",
+  alverde: "🪫"
 };
 
 // serie negativa in corso di ogni giocatore, guardando solo le prime `k`
@@ -445,6 +450,19 @@ function calculateInsights(players, sessions, stats, opts = {}) {
     for (const [id, arr] of cumulative) arr.push(running.get(id));
   }
 
+  // MEDAGLIA DI LEGNO: quante volte ognuno ha chiuso 4° in una serata
+  // (solo serate con almeno 5 giocatori, se no il 4° è anche l'ultimo;
+  // a pari netto si condivide la posizione)
+  const quartiPosti = new Map();
+  for (const s of sorted) {
+    if (s.giocatori.length < 5) continue;
+    for (const g of s.giocatori) {
+      const net = g.out - g.in;
+      const pos = 1 + s.giocatori.filter((o) => o.out - o.in > net + 1e-9).length;
+      if (pos === 4) quartiPosti.set(g.playerId, (quartiPosti.get(g.playerId) || 0) + 1);
+    }
+  }
+
   const recentIds = new Set(sorted.slice(-STREAK_RECENTI).map((s) => s.id));
   for (const st of stats) {
     const res = byPlayer.get(st.id) || [];
@@ -465,6 +483,10 @@ function calculateInsights(players, sessions, stats, opts = {}) {
     st.roiReale = inReali > 0 ? (res.reduce((a, r) => a + r.net, 0) / inReali) * 100 : 0;
     st.best = res.reduce((b, r) => (!b || r.net > b.net ? r : b), null);
     st.worst = res.reduce((w, r) => (!w || r.net < w.net ? r : w), null);
+    // AL VERDE: serate chiuse senza più niente in mano (uscita a 0)
+    st.sbancate = res.filter((r) => r.out <= EPS).length;
+    // MEDAGLIA DI LEGNO: serate chiuse al 4° posto (vedi quartiPosti sotto)
+    st.quarti = quartiPosti.get(st.id) || 0;
     const mean = st.mediaNetto;
     st.swing = res.length > 1
       ? Math.sqrt(res.reduce((a, r) => a + (r.net - mean) ** 2, 0) / (res.length - 1))
@@ -490,6 +512,16 @@ function calculateInsights(players, sessions, stats, opts = {}) {
       if (run > peak.value) peak = { value: run, data: r.data };
     }
     st.peak = peak;
+    // FENICE: risalita dal punto più basso del saldo (recap compreso come
+    // punto di partenza): es. era sceso a -€60, ora è a -€13 -> 47
+    run = st.recapNet;
+    let trough = { value: run, data: recap ? recap.data : null };
+    for (const r of res) {
+      run += r.net;
+      if (run < trough.value) trough = { value: run, data: r.data };
+    }
+    st.trough = trough;
+    st.rise = st.netto - trough.value;
     // conta solo la parte di "altezza" persa: chi non è mai salito non affonda
     st.drawdown = Math.min(peak.value, peak.value - st.netto);
 
@@ -543,9 +575,28 @@ function calculateInsights(players, sessions, stats, opts = {}) {
   if (stakanovista && stakanovista.sessioniGiocate > 0) {
     awards.push({ key: "stakanovista", title: "Stakanovista", color: "var(--neon-violet)", player: stakanovista, value: `${stakanovista.sessioniGiocate} presenze su ${sorted.length}`, desc: "Non ne salta una" });
   }
+  // FENICE: la risalita più grande dal proprio punto più basso
+  const fenice = pick(active, "rise");
+  if (fenice && fenice.rise > EPS) {
+    awards.push({ key: "fenice", title: "Fenice", color: "var(--neon-red)", player: fenice, value: `da ${fmtNet(fenice.trough.value)} a ${fmtNet(fenice.netto)}`, desc: "La risalita più grande dal suo minimo" });
+  }
   const montagne = pick(eligible, "swing");
   if (montagne && montagne.swing > 0) {
     awards.push({ key: "swing", title: "Montagne russe", color: "var(--neon-orange)", player: montagne, value: `swing ±€${Math.round(montagne.swing)}`, desc: "Risultati più altalenanti" });
+  }
+  const byCount = (key) => eligible
+    .filter((s) => s[key] > 0)
+    .reduce((b, s) => (!b || s[key] > b[key] || (s[key] === b[key] && s[key] / s.sessioniGiocate > b[key] / b.sessioniGiocate) ? s : b), null);
+  // TIRCHIASSO: il buy-in medio a serata più basso (solo serate del sito:
+  // del recap non si sa in quante serate sono stati messi i soldi)
+  const tirchiasso = pick(eligible, "mediaBuyIn", -1);
+  if (tirchiasso && tirchiasso.mediaBuyIn > 0) {
+    awards.push({ key: "tirchiasso", title: "Tirchiasso", color: "var(--neon-silver)", player: tirchiasso, value: `€${tirchiasso.mediaBuyIn.toFixed(1).replace(".", ",")} a serata`, desc: "Il buy-in medio più basso" });
+  }
+  // MEDAGLIA DI LEGNO: più serate chiuse al 4° posto
+  const legno = byCount("quarti");
+  if (legno) {
+    awards.push({ key: "legno", title: "Medaglia di legno", color: "var(--neon-wood)", player: legno, value: `${legno.quarti} volte quarto su ${legno.sessioniGiocate}`, desc: "Sempre a un passo dal podio" });
   }
   const bancomat = pick(active, "netto", -1);
   if (bancomat && bancomat.netto < -EPS) {
@@ -559,6 +610,11 @@ function calculateInsights(players, sessions, stats, opts = {}) {
   const manoFredda = pick(eligible, "winRate", -1);
   if (manoFredda && manoFredda.winRate < 50 && manoFredda !== cecchino) {
     awards.push({ key: "manofredda", title: "Carta bassa", color: "var(--neon-ice)", player: manoFredda, value: `solo ${Math.round(manoFredda.winRate)}% in attivo`, desc: "Meno sessioni chiuse in positivo" });
+  }
+  // AL VERDE: più serate chiuse a €0
+  const alverde = byCount("sbancate");
+  if (alverde) {
+    awards.push({ key: "alverde", title: "Al verde", color: "var(--neon-lime)", player: alverde, value: `${alverde.sbancate} volte a €0 su ${alverde.sessioniGiocate}`, desc: "Più serate finite senza fiches" });
   }
   // PIANGINA: la serie di sconfitte consecutive IN CORSO più lunga (almeno
   // PIANGINA_MIN), contando solo le serate giocate da ciascuno e solo chi ha
@@ -1991,6 +2047,17 @@ function openPlayerDrawer(playerId) {
   badges.innerHTML = "";
   s.badges.forEach((b) => badges.appendChild(badgeEl(b.label, b.color, "", b.icon, b.title)));
   if (s.penalizzato) badges.appendChild(badgeEl("Poche presenze", null, "badge-absent"));
+
+  // score senza penalità: solo per chi ha "Poche presenze", come dato indicativo
+  const trueEl = document.getElementById("drawer-truescore");
+  if (s.penalizzato) {
+    const posto = state.stats.filter((x) => x.id !== s.id && x.score > s.scoreBase).length + 1;
+    trueEl.innerHTML = `<span class="truescore-tag">Senza penalità · non ufficiale</span>
+      <span class="truescore-val">score ${s.scoreBase.toFixed(2)} · sarebbe ${posto}°</span>`;
+    trueEl.hidden = false;
+  } else {
+    trueEl.hidden = true;
+  }
 
   const has = s.sessioniGiocate > 0;
   const recapFoot = s.inRecap ? `recap pre-sito ${fmtNet(s.recapNet)}` : `uscite ${fmtMoney(s.totaleOut)}`;

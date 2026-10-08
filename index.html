@@ -94,13 +94,7 @@
       <h1 class="section-title">Chi sta vincendo</h1>
       <div class="score-explain">
         <p class="score-formula"><span class="mono">Score = 70% netto + 30% rendimento</span>, confrontati con il resto del gruppo.</p>
-        <ul class="score-rules">
-          <li><strong>Netto</strong>: gli euro vinti o persi in totale, recap compreso.</li>
-          <li><strong>Rendimento</strong>: il netto diviso per tutti i soldi messi sul tavolo.</li>
-          <li><strong>Confronto</strong>: per ognuno dei due il migliore del gruppo vale 1 e il peggiore 0, gli altri stanno in mezzo.</li>
-          <li><strong>Poche presenze</strong>: chi ha messo sul tavolo meno del 70% della media del gruppo perde fino al 40% dello score.</li>
-        </ul>
-        <p class="score-arrows">Le frecce ▲▼ indicano i posti guadagnati o persi rispetto alla sessione precedente.</p>
+        <p class="score-rule"><strong>Poche presenze</strong>: chi ha messo sul tavolo meno del 70% della media del gruppo perde fino al 40% dello score.</p>
       </div>
     </div>
 
@@ -239,6 +233,7 @@
           <span id="drawer-rank" class="section-eyebrow"></span>
           <h2 id="drawer-name"></h2>
           <div id="drawer-badges" class="badge-row"></div>
+          <p id="drawer-truescore" class="drawer-truescore" hidden></p>
         </div>
       </div>
       <button id="close-drawer-btn" class="btn btn-icon" aria-label="Chiudi">&times;</button>

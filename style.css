@@ -31,6 +31,10 @@
   --neon-blue: #5b8cff;
   --neon-ice: #7fd4ff;
   --neon-pink: #ff6bd6;
+  --neon-red: #ff5a4f;
+  --neon-silver: #c9d3e6;
+  --neon-wood: #d09a62;
+  --neon-lime: #b8ff3c;
 
   --glow-cyan: rgba(34, 230, 255, 0.35);
 
@@ -557,6 +561,24 @@ main {
 .score-rules li { line-height: 1.45; }
 .score-rules strong { color: var(--text-primary); font-weight: 600; }
 .score-arrows { margin: 8px 0 0; color: var(--text-faint); font-size: 0.8rem; }
+.score-rule { margin: 0; }
+.score-rule strong { color: var(--text-primary); font-weight: 600; }
+
+/* score senza penalità nella scheda: grigio e tratteggiato, non è ufficiale */
+.drawer-truescore {
+  margin: 8px 0 0;
+  padding: 5px 10px;
+  display: inline-block;
+  border: 1px dashed var(--line-bright);
+  border-radius: var(--radius-sm);
+  color: var(--text-faint);
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.drawer-truescore span { display: block; }
+.truescore-tag { font-family: var(--font-body); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.8; }
+.truescore-val { color: var(--text-muted); margin-top: 1px; }
 
 /* ==========================================================================
    PODIO — torri di energia
