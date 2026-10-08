@@ -319,6 +319,10 @@ const COLD = { label: "Bidone", color: "var(--neon-magenta)", icon: "🗑️", t
 // entrate, uscite, rendimento, score, classifica) ma NON nelle statistiche
 // "per sessione" (sessioni giocate, medie, % in attivo, migliore/peggiore,
 // serie, record, premi). Nei grafici è il punto di partenza ("Pre-sito").
+// quante serate vere sono riassunte nel recap pre-sito (solo per i testi:
+// nei calcoli il recap resta una sessione unica)
+const RECAP_SERATE = 42;
+
 function findRecapId(sessions) {
   if (!sessions.length) return null;
   return sessions.reduce((first, s) => (s.data < first.data ? s : first)).id;
@@ -647,6 +651,7 @@ const nf = new Intl.NumberFormat("it-IT", { maximumFractionDigits: 0 });
 const fmtMoney = (n) => `${n < 0 ? "-" : ""}€${nf.format(Math.abs(Math.round(n)))}`;
 const fmtNet = (n) => `${Math.round(n) > 0 ? "+" : Math.round(n) < 0 ? "-" : ""}€${nf.format(Math.abs(Math.round(n)))}`;
 const fmtPct = (n) => `${n >= 0 ? "+" : ""}${n.toFixed(1).replace(".", ",")}%`;
+const fmtPctInt = (n) => `${Math.round(n) > 0 ? "+" : ""}${nf.format(Math.round(n))}%`;
 const fmtDiff = (n) => {
   const abs = Math.abs(n);
   const txt = Number.isInteger(Math.round(abs * 100) / 100) ? nf.format(abs) : abs.toFixed(2).replace(".", ",");
@@ -721,43 +726,89 @@ function renderHero(stats, ins) {
   const record = ins.awards.find((a) => a.key === "record");
   const lastInfo = ins.sessionInfo.get(ins.lastSession.id);
 
-  const tiles = [
+  // rendimento di una riga (in %): netto / buy-in della serata
+  const roi = (g) => (g.in > 0 ? ((g.out - g.in) / g.in) * 100 : -Infinity);
+  // serata record in %: miglior rendimento in una singola serata (recap escluso)
+  let bestPct = null;
+  for (const sess of ins.sorted) {
+    for (const g of sess.giocatori) {
+      if (roi(g) > 0 && (!bestPct || roi(g) > bestPct.pct)) bestPct = { g, pct: roi(g), data: sess.data };
+    }
+  }
+  // MVP ultima sessione in %: miglior rendimento della serata
+  const lastPct = ins.lastSession.giocatori.reduce((b, g) => (roi(g) > 0 && (!b || roi(g) > roi(b)) ? g : b), null);
+
+  // serate totali = serate registrate col sito + quelle riassunte nel recap
+  const serateSito = ins.sorted.length;
+  const serate = serateSito + (ins.recap ? RECAP_SERATE : 0);
+  const who = (id, nome, data) => `<strong>${nameHtml(id, nome)}</strong> · ${fmtDateShort(data)}`;
+
+  const cards = [
     {
-      label: "Sessioni giocate",
-      value: String(ins.sorted.length),
-      count: ins.sorted.length, format: "int", cls: "accent",
-      foot: `dal ${fmtDateShort(ins.firstSession.data)} · ${ins.active.length} giocatori${ins.recap ? " · + recap" : ""}`
-    },
-    {
-      label: "Soldi in gioco",
-      value: fmtMoney(ins.totalPot),
-      count: ins.totalPot, format: "money",
-      foot: `${ins.recap ? "recap compreso · " : ""}media ${fmtMoney(ins.avgPot)} a sessione`
+      label: "Dall'inizio",
+      cls: "kpi-main",
+      halves: [
+        {
+          sub: "Sessioni giocate", value: String(serate), count: serate, format: "int", cls: "accent",
+          foot: ins.recap
+            ? `${RECAP_SERATE} prima del sito + ${serateSito} sul sito<br>${ins.active.length} giocatori`
+            : `dal ${fmtDateShort(ins.firstSession.data)} · ${ins.active.length} giocatori`
+        },
+        {
+          sub: "Soldi in gioco", value: fmtMoney(ins.totalPot), count: ins.totalPot, format: "money",
+          foot: `media ${fmtMoney(ins.totalPot / serate)} a serata`
+        }
+      ]
     },
     {
       label: "Serata record",
-      value: record ? fmtNet(record.player.best.net) : "—",
-      count: record ? record.player.best.net : null, format: "net", cls: "value-positive",
-      foot: record ? `<strong>${nameHtml(record.player.id, record.player.nome)}</strong> · ${fmtDateShort(record.player.best.data)}` : "",
-      playerId: record ? record.player.id : null
+      halves: [
+        {
+          sub: "In euro", value: record ? fmtNet(record.player.best.net) : "—",
+          count: record ? record.player.best.net : null, format: "net", cls: "value-positive",
+          foot: record ? who(record.player.id, record.player.nome, record.player.best.data) : "nessuna vincita"
+        },
+        {
+          sub: "In percentuale", value: bestPct ? fmtPctInt(bestPct.pct) : "—",
+          count: bestPct ? bestPct.pct : null, format: "pct", cls: "value-positive",
+          foot: bestPct ? who(bestPct.g.playerId, bestPct.g.nome, bestPct.data) : "nessuna vincita"
+        }
+      ]
     },
     {
       label: "MVP ultima sessione",
-      value: lastInfo.winner ? fmtNet(lastInfo.winnerNet) : "—",
-      count: lastInfo.winner ? lastInfo.winnerNet : null, format: "net", cls: "value-positive",
-      foot: lastInfo.winner ? `<strong>${nameHtml(lastInfo.winner.playerId, lastInfo.winner.nome)}</strong> · ${fmtDateShort(ins.lastSession.data)}` : "",
-      playerId: lastInfo.winner ? lastInfo.winner.playerId : null
+      halves: [
+        {
+          sub: "In euro", value: lastInfo.winner && lastInfo.winnerNet > 0 ? fmtNet(lastInfo.winnerNet) : "—",
+          count: lastInfo.winner && lastInfo.winnerNet > 0 ? lastInfo.winnerNet : null, format: "net", cls: "value-positive",
+          foot: lastInfo.winner && lastInfo.winnerNet > 0 ? who(lastInfo.winner.playerId, lastInfo.winner.nome, ins.lastSession.data) : "nessun vincitore"
+        },
+        {
+          sub: "In percentuale", value: lastPct ? fmtPctInt(roi(lastPct)) : "—",
+          count: lastPct ? roi(lastPct) : null, format: "pct", cls: "value-positive",
+          foot: lastPct ? who(lastPct.playerId, lastPct.nome, ins.lastSession.data) : "nessun vincitore"
+        }
+      ]
     }
   ];
 
-  for (const t of tiles) {
+  for (const c of cards) {
     const el = document.createElement("div");
-    el.className = "kpi neon-edge";
-    el.innerHTML = `
-      <span class="kpi-label">${t.label}</span>
-      <span class="kpi-value ${t.cls || ""}">${t.value}</span>
-      <span class="kpi-foot">${t.foot}</span>`;
-    if (t.count !== null && state.firstRender) countUp(el.querySelector(".kpi-value"), t.count, t.format);
+    el.className = `kpi kpi-split neon-edge ${c.cls || ""}`;
+    el.innerHTML = `<span class="kpi-label">${c.label}</span>
+      <div class="kpi-halves">${c.halves.map((h) => `
+        <div class="kpi-half">
+          <span class="kpi-sub">${h.sub}</span>
+          <span class="kpi-value ${h.cls || ""}">${h.value}</span>
+          <span class="kpi-foot">${h.foot}</span>
+        </div>`).join("")}
+      </div>`;
+    if (state.firstRender) {
+      el.querySelectorAll(".kpi-value").forEach((v, i) => {
+        const h = c.halves[i];
+        if (h.count !== null) countUp(v, h.count, h.format);
+      });
+    }
     grid.appendChild(el);
   }
 }
@@ -840,7 +891,7 @@ function escapeHtml(s) {
 
 function countUp(el, target, format) {
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const fmt = format === "money" ? fmtMoney : format === "net" ? fmtNet : (n) => String(Math.round(n));
+  const fmt = format === "money" ? fmtMoney : format === "net" ? fmtNet : format === "pct" ? fmtPctInt : (n) => String(Math.round(n));
   const start = performance.now();
   const dur = 900;
   const step = (now) => {
@@ -1120,7 +1171,7 @@ function renderHistory(sessions, ins) {
       card.classList.add("session-card-recap");
       node.querySelector(".session-date").textContent = "Recap pre-sito";
       node.querySelector(".session-meta").textContent =
-        `${info.count} giocatori · ${fmtMoney(info.totIn)} in gioco · tutte le serate prima del sito`;
+        `${info.count} giocatori · ${fmtMoney(info.totIn)} in gioco · tutte le ${RECAP_SERATE} serate prima del sito`;
       node.querySelector(".session-winner").innerHTML = `<span class="recap-pill">punto di partenza</span>`;
     } else {
       node.querySelector(".session-date").textContent = fmtDate(session.data);

@@ -520,6 +520,44 @@ main {
 }
 .kpi-foot strong { color: var(--text-primary); font-weight: 600; }
 
+/* card doppie: un titolo e due metà affiancate (es. € e %) */
+.kpi-grid { grid-template-columns: 1.3fr 1fr 1fr; }
+.kpi-halves {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 4px;
+  flex: 1;
+}
+.kpi-half {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.kpi-half + .kpi-half { border-left: 1px solid var(--line); padding-left: 14px; }
+.kpi-sub { font-size: 0.74rem; color: var(--text-muted); font-weight: 500; }
+.kpi-split .kpi-value { font-size: clamp(1.35rem, 2.4vw, 1.8rem); }
+.kpi-split.kpi-main .kpi-value { font-size: clamp(1.5rem, 3vw, 2.1rem); }
+/* i testi sotto vanno a capo invece di essere tagliati con i "..." */
+.kpi-split .kpi-foot { white-space: normal; overflow: visible; line-height: 1.35; font-size: 0.76rem; }
+
+/* spiegazione dello score in classifica */
+.score-explain { margin-top: 12px; max-width: 880px; color: var(--text-muted); font-size: 0.86rem; }
+.score-formula { margin: 0 0 8px; }
+.score-formula .mono { color: var(--text-primary); }
+.score-rules {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 24px;
+}
+.score-rules li { line-height: 1.45; }
+.score-rules strong { color: var(--text-primary); font-weight: 600; }
+.score-arrows { margin: 8px 0 0; color: var(--text-faint); font-size: 0.8rem; }
+
 /* ==========================================================================
    PODIO — torri di energia
    ========================================================================== */
@@ -1674,6 +1712,7 @@ input[type="number"], input[type="text"] { font-family: var(--font-mono); width:
    ========================================================================== */
 @media (max-width: 920px) {
   .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi-grid .kpi-main { grid-column: 1 / -1; }
   .hof-panel { grid-template-columns: minmax(0, 1fr); }
   .header-top { flex-wrap: wrap; row-gap: 8px; }
   .site-nav {
@@ -1702,6 +1741,10 @@ input[type="number"], input[type="text"] { font-family: var(--font-mono); width:
   .kpi-grid { gap: 10px; }
   .kpi { padding: 14px; }
   .kpi-foot { white-space: normal; }
+  .kpi-grid { grid-template-columns: minmax(0, 1fr); }
+  .kpi-half + .kpi-half { padding-left: 12px; }
+  .kpi-halves { gap: 12px; }
+  .score-rules { grid-template-columns: minmax(0, 1fr); }
   .awards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .award:last-child:nth-child(odd) { grid-column: 1 / -1; }
   .awards-grid.has-featured .award:last-child:nth-child(odd) { grid-column: auto; }

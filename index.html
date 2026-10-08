@@ -81,8 +81,7 @@
     </div>
     <!-- le sagome "skel" si vedono solo finché non arrivano i dati da Firebase -->
     <div id="kpi-grid" class="kpi-grid skel-host">
-      <div class="kpi skel-card"><span class="skel skel-line w30"></span><span class="skel skel-line skel-big w50"></span><span class="skel skel-line w70"></span></div>
-      <div class="kpi skel-card"><span class="skel skel-line w30"></span><span class="skel skel-line skel-big w50"></span><span class="skel skel-line w70"></span></div>
+      <div class="kpi kpi-main skel-card"><span class="skel skel-line w30"></span><span class="skel skel-line skel-big w50"></span><span class="skel skel-line w70"></span></div>
       <div class="kpi skel-card"><span class="skel skel-line w30"></span><span class="skel skel-line skel-big w50"></span><span class="skel skel-line w70"></span></div>
       <div class="kpi skel-card"><span class="skel skel-line w30"></span><span class="skel skel-line skel-big w50"></span><span class="skel skel-line w70"></span></div>
     </div>
@@ -93,7 +92,16 @@
     <div class="section-heading">
       <span class="section-eyebrow">Classifica</span>
       <h1 class="section-title">Chi sta vincendo</h1>
-      <p class="section-note">Score = 70% netto + 30% rendimento, relativo al gruppo. Le frecce indicano il movimento rispetto alla sessione precedente.</p>
+      <div class="score-explain">
+        <p class="score-formula"><span class="mono">Score = 70% netto + 30% rendimento</span>, confrontati con il resto del gruppo.</p>
+        <ul class="score-rules">
+          <li><strong>Netto</strong>: gli euro vinti o persi in totale, recap compreso.</li>
+          <li><strong>Rendimento</strong>: il netto diviso per tutti i soldi messi sul tavolo.</li>
+          <li><strong>Confronto</strong>: per ognuno dei due il migliore del gruppo vale 1 e il peggiore 0, gli altri stanno in mezzo.</li>
+          <li><strong>Poche presenze</strong>: chi ha messo sul tavolo meno del 70% della media del gruppo perde fino al 40% dello score.</li>
+        </ul>
+        <p class="score-arrows">Le frecce ▲▼ indicano i posti guadagnati o persi rispetto alla sessione precedente.</p>
+      </div>
     </div>
 
     <div id="podium" class="podium skel-host" aria-label="Podio dei primi tre giocatori">
